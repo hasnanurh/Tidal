@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="TIDAL">
+<meta name="theme-color" content="#f7f6f2">
+<title>TIDAL</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --surface2: #eeece7;
+    --border: #d8d5cc;
+    --accent: #1a1a1a;
+    --accent2: #c0392b;
+    --text: #1a1a1a;
+    --muted: #8a8780;
+    --danger: #c0392b;
+    --success: #1a7a4a;
+    --ocean: #1a6fa8;
+    --moon: #7b3fa8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* SCREENS */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ====== USER SELECT ====== */
+  #screen-user {
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ede9e0 0%, var(--bg) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  #screen-user::before {
+    content: 'TIDAL';
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28vw;
+    color: #1a1a1a06;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: 0.05em;
+  }
+  .user-select-inner { position: relative; z-index: 1; text-align: center; }
+  .user-select-inner h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+  .user-select-inner p { color: var(--muted); font-size: 0.95rem; margin-bottom: 3rem; }
+  .user-cards { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; }
+  .user-card {
+    width: 200px;
+    padding: 2.5rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .user-card::after {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 0.25s;
+    border-radius: 16px;
+  }
+  .user-card[data-user="ocean"]::after { background: radial-gradient(circle at 50% 0%, #1a6fa820, transparent 70%); }
+  .user-card[data-user="moon"]::after { background: radial-gradient(circle at 50% 0%, #7b3fa820, transparent 70%); }
+  .user-card:hover { transform: translateY(-4px); border-color: var(--border); }
+  .user-card:hover::after { opacity: 1; }
+  .user-card[data-user="ocean"]:hover { border-color: var(--ocean); }
+  .user-card[data-user="moon"]:hover { border-color: var(--moon); }
+  .user-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    font-weight: 600;
+  }
+  .user-card[data-user="ocean"] .user-avatar { background: #1a6fa815; color: var(--ocean); border: 2px solid #1a6fa830; }
+  .user-card[data-user="moon"] .user-avatar { background: #7b3fa815; color: var(--moon); border: 2px solid #7b3fa830; }
+  .user-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.1em; }
+  .user-gender { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* ====== HOME ====== */
+  #screen-home { background: var(--bg); }
+  .topbar {
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border); box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+    backdrop-filter: blur(10px);
+  }
+  .topbar-brand {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+  .topbar-user {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.9rem; font-weight: 500;
+    cursor: pointer;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+  .topbar-user:hover { border-color: var(--accent); }
+  .topbar-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .user-ocean .topbar-dot { background: var(--ocean); }
+  .user-moon .topbar-dot { background: var(--moon); }
+  .topbar-actions { display: flex; gap: 0.5rem; }
+
+  .home-content { padding: 1.5rem; max-width: 700px; margin: 0 auto; width: 100%; }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-accent { background: var(--accent); color: #ffffff; }
+  .btn-accent:hover { background: #333333; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: #c0392b12; color: var(--danger); border: 1px solid #c0392b25; }
+  .btn-danger:hover { background: #c0392b22; }
+  .btn-icon { padding: 0.5rem; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.2s; font-size: 1rem; line-height: 1; }
+  .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+  .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+
+  /* Plan cards */
+  .plan-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .plan-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: border-color 0.2s;
+  }
+  .plan-card:hover { border-color: var(--border); }
+  .plan-info h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem; }
+  .plan-meta { font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .plan-actions { display: flex; gap: 0.5rem; }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted);
+  }
+  .empty-state .empty-icon { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.4; }
+  .empty-state p { font-size: 0.9rem; }
+
+  .divider { height: 1px; background: var(--border); margin: 2rem 0; }
+
+  /* ====== CALENDAR ====== */
+  #screen-calendar { background: var(--bg); }
+  .calendar-wrap { padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .cal-month { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 0.08em; }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 44px);
+    gap: 4px;
+    width: 332px;
+  }
+  .cal-day-label {
+    width: 44px;
+    text-align: center;
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    padding: 0.5rem 0;
+    text-transform: uppercase;
+  }
+  .cal-day {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    position: relative;
+    cursor: default;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .cal-day.other-month { color: var(--muted); opacity: 0.3; }
+  .cal-day.today { border: 1px solid var(--accent); color: var(--accent); font-weight: 600; }
+  .cal-day.has-log {
+    background: var(--surface2);
+    cursor: pointer;
+  }
+  .cal-day.has-log:hover { background: var(--surface); }
+  .cal-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    position: absolute;
+    bottom: 4px;
+  }
+  .cal-legend { margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+  .log-list { margin-top: 1.5rem; }
+  .log-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 0.6rem;
+  }
+  .log-item h4 { font-size: 0.95rem; font-weight: 600; }
+  .log-item .log-meta { font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 0.2rem; }
+
+  /* ====== CREATE PLAN ====== */
+  #screen-create { background: var(--bg); }
+  .create-wrap { padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+  .plan-name-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    color: var(--text);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.05em;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 1.5rem;
+  }
+  .plan-name-input::placeholder { color: var(--muted); }
+  .plan-name-input:focus { border-color: var(--accent); }
+
+  /* Exercise items */
+  .exercise-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .exercise-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    display: flex; align-items: center; gap: 0.8rem;
+  }
+  .drag-handle { color: var(--muted); cursor: grab; font-size: 1rem; user-select: none; flex-shrink: 0; }
+  .drag-handle:active { cursor: grabbing; }
+  .ex-info { flex: 1; }
+  .ex-name { font-weight: 600; font-size: 0.95rem; }
+  .ex-detail { font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 0.15rem; }
+  .exercise-item.dragging { opacity: 0.4; border-style: dashed; }
+  .exercise-item.drag-over { border-color: var(--accent); }
+
+  /* Add exercise form */
+  .add-ex-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .add-ex-form h3 { font-size: 0.9rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+  .form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .form-field { flex: 1; min-width: 120px; }
+  .form-field label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .form-field input, .form-field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--accent); }
+  .form-field select option { background: var(--surface2); }
+  .toggle-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .toggle-btn {
+    flex: 1; padding: 0.5rem; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .toggle-btn.active { background: #1a1a1a10; border-color: var(--accent); color: var(--accent); }
+
+  /* ====== RUN ====== */
+  #screen-run {
+    background: var(--bg);
+    justify-content: stretch;
+  }
+  .run-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem;
+  }
+  .run-progress {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .run-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+  .run-counter { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--muted); margin-bottom: 2rem; }
+  .run-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .run-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    margin-bottom: 1.5rem;
+  }
+  .run-exercise-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    letter-spacing: 0.05em;
+    line-height: 1;
+    margin-bottom: 1.5rem;
+  }
+  .run-detail {
+    font-size: 1.1rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    background: var(--surface);
+    padding: 0.6rem 1.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .run-timer-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(4rem, 15vw, 8rem);
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+  .run-timer-label { font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3rem; }
+  .run-next-btn {
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem 3rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    max-width: 320px;
+  }
+  .run-next-btn:hover { background: #333333; transform: translateY(-2px); }
+  .run-done-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .done-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .done-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 0.5rem; }
+  .done-sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; }
+
+  /* ====== MODAL ====== */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    max-width: 420px;
+    width: 100%;
+  }
+  .modal h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .modal p { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.85rem;
+    z-index: 9999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.danger { border-color: var(--danger); color: var(--danger); }
+
+  /* Nav back */
+  .nav-back {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.85rem; color: var(--muted);
+    cursor: pointer;
+    padding: 0.4rem 0;
+    border: none; background: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--text); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+  @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .pop { animation: pop 0.3s cubic-bezier(.34,1.56,.64,1) forwards; }
+
+  /* Timer circle ring */
+  .timer-ring-wrap { position: relative; width: 160px; height: 160px; margin-bottom: 1.5rem; }
+  .timer-ring-svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .timer-ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+  .timer-ring-progress { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .timer-ring-text {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    color: var(--accent);
+  }
+
+  /* ====== LANDSCAPE / TABLET ====== */
+  @media (orientation: landscape) {
+    .screen { flex-direction: row; }
+
+    /* User select: side by side */
+    #screen-user { flex-direction: column; }
+
+    /* Home: sidebar + content split */
+    #screen-home { flex-direction: column; }
+
+    /* Topbar stays full width */
+    .topbar { width: 100%; flex-shrink: 0; }
+
+    /* Calendar: limit grid container width */
+    .calendar-wrap { max-width: 900px; }
+
+    /* Run: wider comfortable layout */
+    .run-wrap { max-width: 900px; }
+    .run-exercise-name { font-size: clamp(3rem, 6vw, 6rem); }
+    .timer-ring-wrap { width: 200px; height: 200px; }
+    .timer-ring-text { font-size: 3.8rem; }
+
+    /* Create plan: wider */
+    .create-wrap { max-width: 900px; }
+
+    /* Home content wider */
+    .home-content { max-width: 900px; }
+
+    /* User cards horizontal */
+    .user-cards { flex-direction: row; }
+  }
+
+  /* Safe area insets for notched tablets */
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+</style>
+</head>
+<body>
+
+<!-- USER SELECT -->
+<div id="screen-user" class="screen active">
+  <div class="user-select-inner">
+    <h1>TIDAL</h1>
+    <p>Select your profile to continue</p>
+    <div class="user-cards">
+      <div class="user-card pop" data-user="ocean" onclick="selectUser('ocean')" style="animation-delay:0.1s">
+        <div class="user-avatar">🏋️</div>
+        <div class="user-name">Ocean</div>
+        <div class="user-gender">Male</div>
+      </div>
+      <div class="user-card pop" data-user="moon" onclick="selectUser('moon')" style="animation-delay:0.2s">
+        <div class="user-avatar">🧘</div>
+        <div class="user-name">Moon</div>
+        <div class="user-gender">Female</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOME -->
+<div id="screen-home" class="screen">
+  <div class="topbar" id="home-topbar">
+    <div class="topbar-brand">TIDAL</div>
+    <div class="topbar-user" id="topbar-user" onclick="goBack()">
+      <span class="topbar-dot"></span>
+      <span id="topbar-name"></span>
+      <span style="color:var(--muted);font-size:0.75rem">↩</span>
+    </div>
+  </div>
+  <div class="home-content">
+    <div class="section-header fade-in">
+      <div class="section-title">My Plans</div>
+      <button class="btn btn-accent" onclick="goCreate()">+ New Plan</button>
+    </div>
+    <div class="plan-list fade-in" id="plan-list">
+      <div class="empty-state">
+        <div class="empty-icon">🏋️</div>
+        <p>No workout plans yet.<br>Create your first one!</p>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-header fade-in">
+      <div class="section-title">Activity</div>
+      <button class="btn btn-ghost btn-sm" onclick="goCalendar()">📅 View Calendar</button>
+    </div>
+    <div id="home-recent-logs" class="fade-in" style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">
+      No activity recorded yet.
+    </div>
+    <div class="divider"></div>
+    <div class="fade-in" style="text-align:right;">
+      <button class="btn btn-danger btn-sm" onclick="confirmReset()">⚠ Reset All Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div id="screen-calendar" class="screen">
+  <div class="topbar">
+    <button class="nav-back" onclick="goHome()">← Back</button>
+    <div class="topbar-brand" style="font-size:1.2rem;">Activity</div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="calendar-wrap">
+    <div class="cal-header fade-in">
+      <button class="btn-icon" onclick="calPrev()">‹</button>
+      <div class="cal-month" id="cal-month-label"></div>
+      <button class="btn-icon" onclick="calNext()">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-legend">
+      <div class="legend-item"><div class="legend-dot"></div> Workout completed</div>
+    </div>
+    <div class="log-list fade-in" id="cal-log-list"></div>
+  </div>
+</div>
+
+<!-- CREATE PLAN -->
+<div id="screen-create" class="screen">
+  <div class="topbar">
+    <button class="nav-back" onclick="goHome()">← Cancel</button>
+    <div class="topbar-brand" style="font-size:1.2rem;" id="create-title">New Plan</div>
+    <button class="btn btn-accent btn-sm" onclick="savePlan()">Save</button>
+  </div>
+  <div class="create-wrap">
+    <input class="plan-name-input" id="plan-name-input" type="text" placeholder="PLAN NAME…" maxlength="40">
+    <div class="exercise-list" id="exercise-list"></div>
+    <div class="add-ex-form fade-in">
+      <h3>Add Exercise</h3>
+      <div class="form-row">
+        <div class="form-field" style="flex:2">
+          <label>Name</label>
+          <input type="text" id="ex-name" placeholder="e.g. Push Up" maxlength="40">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="toggle-reps" onclick="setExType('reps')">By Reps</button>
+        <button class="toggle-btn" id="toggle-time" onclick="setExType('time')">By Time</button>
+      </div>
+      <div class="form-row" id="reps-fields">
+        <div class="form-field">
+          <label>Sets</label>
+          <input type="number" id="ex-sets" placeholder="3" min="1" max="99">
+        </div>
+        <div class="form-field">
+          <label>Reps</label>
+          <input type="number" id="ex-reps" placeholder="10" min="1" max="999">
+        </div>
+      </div>
+      <div class="form-row" id="time-fields" style="display:none">
+        <div class="form-field">
+          <label>DURATION (S)</label>
+          <input type="number" id="ex-duration" placeholder="30" min="1" max="9999">
+        </div>
+        <div class="form-field">
+          <label>Sets</label>
+          <input type="number" id="ex-sets-time" placeholder="3" min="1" max="99">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Break After (S)</label>
+          <input type="number" id="ex-break" placeholder="0" min="0" max="300">
+        </div>
+      </div>
+      <button class="btn btn-accent" onclick="addExercise()" style="width:100%">+ Add to Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- RUN -->
+<div id="screen-run" class="screen">
+  <div class="topbar">
+    <button class="nav-back" onclick="confirmStopRun()">✕ Stop</button>
+    <div class="topbar-brand" style="font-size:1.1rem;" id="run-plan-name"></div>
+    <div style="width:60px"></div>
+  </div>
+  <div class="run-wrap" id="run-content"></div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-reset">
+  <div class="modal pop">
+    <h2>Reset All Data?</h2>
+    <p>This will delete all workout plans and activity logs for <strong id="modal-reset-user"></strong>. This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reset')">Cancel</button>
+      <button class="btn btn-danger" onclick="doReset()">Reset</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-stop-run">
+  <div class="modal pop">
+    <h2>Stop Workout?</h2>
+    <p>Your progress for this session won't be saved.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-stop-run')">Continue</button>
+      <button class="btn btn-danger" onclick="doStopRun()">Stop</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-edit-ex">
+  <div class="modal pop">
+    <h2>Edit Exercise</h2>
+    <div class="add-ex-form" style="margin:0;border:none;padding:0;background:transparent">
+      <div class="form-row">
+        <div class="form-field" style="flex:2">
+          <label>Name</label>
+          <input type="text" id="edit-ex-name" maxlength="40">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <button class="toggle-btn" id="edit-toggle-reps" onclick="setEditExType('reps')">By Reps</button>
+        <button class="toggle-btn" id="edit-toggle-time" onclick="setEditExType('time')">By Time</button>
+      </div>
+      <div class="form-row" id="edit-reps-fields">
+        <div class="form-field"><label>Sets</label><input type="number" id="edit-ex-sets" min="1" max="99"></div>
+        <div class="form-field"><label>Reps</label><input type="number" id="edit-ex-reps" min="1" max="999"></div>
+      </div>
+      <div class="form-row" id="edit-time-fields" style="display:none">
+        <div class="form-field"><label>DURATION (S)</label><input type="number" id="edit-ex-duration" min="1" max="9999"></div>
+        <div class="form-field"><label>Sets</label><input type="number" id="edit-ex-sets-time" min="1" max="99"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>Break After (S)</label>
+          <input type="number" id="edit-ex-break" placeholder="0" min="0" max="300">
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:1rem">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-ex')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveEditExercise()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ STATE ============
+let currentUser = null;
+let editingPlanId = null;
+let editingExIdx = null;
+let exType = 'reps';
+let editExType = 'reps';
+let calYear, calMonth;
+let runPlan = null;
+let runIdx = 0;
+let timerInterval = null;
+let timerRemaining = 0;
+let timerTotal = 0;
+let currentRunSet = 1;
+let dragSrcIdx = null;
+
+function storageKey(type) { return `fitflow_${currentUser}_${type}`; }
+
+function getPlans() {
+  try { return JSON.parse(localStorage.getItem(storageKey('plans'))) || []; } catch { return []; }
+}
+function setPlans(plans) { localStorage.setItem(storageKey('plans'), JSON.stringify(plans)); }
+
+function getLogs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(storageKey('logs'))) || [];
+    // Filter out any malformed entries missing required fields
+    return raw.filter(l => l && l.id && l.planName && l.date && !isNaN(new Date(l.date).getTime()));
+  } catch { return []; }
+}
+function setLogs(logs) { localStorage.setItem(storageKey('logs'), JSON.stringify(logs)); }
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ============ SCREENS ============
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function selectUser(user) {
+  currentUser = user;
+  const topUser = document.getElementById('topbar-user');
+  topUser.className = 'topbar-user user-' + user;
+  document.getElementById('topbar-name').textContent = user.charAt(0).toUpperCase() + user.slice(1);
+  showScreen('screen-home');
+  renderHome();
+}
+
+function goBack() {
+  currentUser = null;
+  showScreen('screen-user');
+}
+
+function goHome() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  showScreen('screen-home');
+  renderHome();
+}
+
+function goCreate(planId) {
+  editingPlanId = planId || null;
+  const plans = getPlans();
+  if (planId) {
+    const p = plans.find(p => p.id === planId);
+    if (p) {
+      document.getElementById('plan-name-input').value = p.name;
+      document.getElementById('create-title').textContent = 'Edit Plan';
+      window._editExercises = JSON.parse(JSON.stringify(p.exercises));
+    }
+  } else {
+    document.getElementById('plan-name-input').value = '';
+    document.getElementById('create-title').textContent = 'New Plan';
+    window._editExercises = [];
+  }
+  renderExerciseList();
+  showScreen('screen-create');
+}
+
+function goCalendar() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  renderCalendar();
+  showScreen('screen-calendar');
+}
+
+// ============ HOME ============
+function renderHome() {
+  const plans = getPlans();
+  const list = document.getElementById('plan-list');
+  if (!plans.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🏋️</div><p>No workout plans yet.<br>Create your first one!</p></div>`;
+  } else {
+    list.innerHTML = plans.map(p => `
+      <div class="plan-card fade-in">
+        <div class="plan-info">
+          <h3>${esc(p.name)}</h3>
+          <div class="plan-meta">${p.exercises.length} exercises · ${p.exercises.map(e => e.type === 'reps' ? `${e.sets}×${e.reps}` : `${e.sets}×${e.duration}s`).slice(0,3).join(' · ')}${p.exercises.length > 3 ? '…' : ''}</div>
+        </div>
+        <div class="plan-actions">
+          <button class="btn-icon" title="Edit" onclick="goCreate('${p.id}')">✏️</button>
+          <button class="btn-icon" title="Delete" onclick="deletePlan('${p.id}')">🗑️</button>
+          <button class="btn btn-accent btn-sm" onclick="startRun('${p.id}')">▶ Run</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  // Recent logs
+  const logs = getLogs().slice(-5).reverse();
+  const logEl = document.getElementById('home-recent-logs');
+  if (!logs.length) {
+    logEl.innerHTML = `<span>No activity recorded yet.</span>`;
+  } else {
+    logEl.innerHTML = logs.map(l => `
+      <div class="log-item fade-in">
+        <h4>${esc(l.planName)}</h4>
+        <div class="log-meta">${new Date(l.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function deletePlan(id) {
+  const plans = getPlans().filter(p => p.id !== id);
+  setPlans(plans);
+  renderHome();
+  toast('Plan deleted', 'danger');
+}
+
+// ============ CREATE ============
+function setExType(t) {
+  exType = t;
+  document.getElementById('toggle-reps').classList.toggle('active', t === 'reps');
+  document.getElementById('toggle-time').classList.toggle('active', t === 'time');
+  document.getElementById('reps-fields').style.display = t === 'reps' ? 'flex' : 'none';
+  document.getElementById('time-fields').style.display = t === 'time' ? 'flex' : 'none';
+}
+
+function addExercise() {
+  const name = document.getElementById('ex-name').value.trim();
+  if (!name) { toast('Enter an exercise name', 'danger'); return; }
+  const ex = { id: uid(), name, type: exType };
+  if (exType === 'reps') {
+    ex.sets = parseInt(document.getElementById('ex-sets').value) || 3;
+    ex.reps = parseInt(document.getElementById('ex-reps').value) || 10;
+  } else {
+    ex.duration = parseInt(document.getElementById('ex-duration').value) || 30;
+    ex.sets = parseInt(document.getElementById('ex-sets-time').value) || 3;
+  }
+  ex.breakTime = parseInt(document.getElementById('ex-break').value) || 0;
+  window._editExercises.push(ex);
+  renderExerciseList();
+  document.getElementById('ex-name').value = '';
+  document.getElementById('ex-sets').value = '';
+  document.getElementById('ex-reps').value = '';
+  document.getElementById('ex-duration').value = '';
+  document.getElementById('ex-sets-time').value = '';
+  document.getElementById('ex-break').value = '';
+}
+
+function renderExerciseList() {
+  const list = document.getElementById('exercise-list');
+  const exs = window._editExercises || [];
+  if (!exs.length) {
+    list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem 0;">No exercises yet. Add one below.</div>`;
+    return;
+  }
+  list.innerHTML = exs.map((e, i) => `
+    <div class="exercise-item fade-in" draggable="true" data-idx="${i}"
+      ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})" ondrop="dragDrop(event,${i})" ondragleave="dragLeave(event)">
+      <span class="drag-handle">⠿</span>
+      <div class="ex-info">
+        <div class="ex-name">${esc(e.name)}</div>
+        <div class="ex-detail">${e.type === 'reps' ? `${e.sets} sets × ${e.reps} reps` : `${e.sets} sets × ${e.duration}s`}${e.breakTime ? ` · ${e.breakTime}s break` : ''}</div>
+      </div>
+      <button class="btn-icon" onclick="editExercise(${i})">✏️</button>
+      <button class="btn-icon" onclick="removeExercise(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeExercise(i) {
+  window._editExercises.splice(i, 1);
+  renderExerciseList();
+}
+
+function editExercise(i) {
+  editingExIdx = i;
+  const e = window._editExercises[i];
+  editExType = e.type;
+  document.getElementById('edit-ex-name').value = e.name;
+  setEditExType(e.type);
+  if (e.type === 'reps') {
+    document.getElementById('edit-ex-sets').value = e.sets;
+    document.getElementById('edit-ex-reps').value = e.reps;
+  } else {
+    document.getElementById('edit-ex-duration').value = e.duration;
+    document.getElementById('edit-ex-sets-time').value = e.sets;
+  }
+  document.getElementById('edit-ex-break').value = e.breakTime || 0;
+  openModal('modal-edit-ex');
+}
+
+function setEditExType(t) {
+  editExType = t;
+  document.getElementById('edit-toggle-reps').classList.toggle('active', t === 'reps');
+  document.getElementById('edit-toggle-time').classList.toggle('active', t === 'time');
+  document.getElementById('edit-reps-fields').style.display = t === 'reps' ? 'flex' : 'none';
+  document.getElementById('edit-time-fields').style.display = t === 'time' ? 'flex' : 'none';
+}
+
+function saveEditExercise() {
+  const name = document.getElementById('edit-ex-name').value.trim();
+  if (!name) { toast('Enter a name', 'danger'); return; }
+  const e = window._editExercises[editingExIdx];
+  e.name = name;
+  e.type = editExType;
+  if (editExType === 'reps') {
+    e.sets = parseInt(document.getElementById('edit-ex-sets').value) || 3;
+    e.reps = parseInt(document.getElementById('edit-ex-reps').value) || 10;
+    delete e.duration;
+  } else {
+    e.duration = parseInt(document.getElementById('edit-ex-duration').value) || 30;
+    e.sets = parseInt(document.getElementById('edit-ex-sets-time').value) || 3;
+    delete e.reps;
+  }
+  e.breakTime = parseInt(document.getElementById('edit-ex-break').value) || 0;
+  renderExerciseList();
+  closeModal('modal-edit-ex');
+}
+
+function savePlan() {
+  const name = document.getElementById('plan-name-input').value.trim();
+  if (!name) { toast('Enter a plan name', 'danger'); return; }
+  const exs = window._editExercises || [];
+  if (!exs.length) { toast('Add at least one exercise', 'danger'); return; }
+  const plans = getPlans();
+  if (editingPlanId) {
+    const idx = plans.findIndex(p => p.id === editingPlanId);
+    if (idx >= 0) { plans[idx].name = name; plans[idx].exercises = exs; }
+  } else {
+    plans.push({ id: uid(), name, exercises: exs });
+  }
+  setPlans(plans);
+  toast('Plan saved!', 'success');
+  goHome();
+}
+
+// ============ DRAG & DROP ============
+function dragStart(e, i) { dragSrcIdx = i; e.currentTarget.classList.add('dragging'); }
+function dragOver(e, i) { e.preventDefault(); document.querySelectorAll('.exercise-item').forEach(el => el.classList.remove('drag-over')); e.currentTarget.classList.add('drag-over'); }
+function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function dragDrop(e, i) {
+  e.preventDefault();
+  if (dragSrcIdx === null || dragSrcIdx === i) return;
+  const exs = window._editExercises;
+  const [moved] = exs.splice(dragSrcIdx, 1);
+  exs.splice(i, 0, moved);
+  dragSrcIdx = null;
+  renderExerciseList();
+}
+
+// ============ RUN ============
+function startRun(planId) {
+  const plans = getPlans();
+  runPlan = plans.find(p => p.id === planId);
+  if (!runPlan) return;
+  runIdx = 0;
+  currentRunSet = 1;
+  if (timerInterval) clearInterval(timerInterval);
+  document.getElementById('run-plan-name').textContent = runPlan.name;
+  showScreen('screen-run');
+  renderCountdown();
+}
+
+function renderCountdown() {
+  const content = document.getElementById('run-content');
+  let count = 5;
+  content.innerHTML = `
+    <div class="run-main fade-in" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+      <div class="run-badge">Get Ready!</div>
+      <div id="countdown-number" style="font-family:'Bebas Neue',sans-serif;font-size:clamp(8rem,25vw,14rem);line-height:1;color:var(--accent);transition:transform 0.15s,opacity 0.15s;">${count}</div>
+      <div style="font-size:0.85rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1rem;text-transform:uppercase;letter-spacing:0.1em;">${esc(runPlan.exercises[0].name)} · up first</div>
+    </div>
+  `;
+  timerInterval = setInterval(() => {
+    count--;
+    const el = document.getElementById('countdown-number');
+    if (!el) { clearInterval(timerInterval); return; }
+    if (count <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      renderRunStep();
+      return;
+    }
+    el.style.opacity = '0';
+    el.style.transform = 'scale(1.3)';
+    setTimeout(() => {
+      if (!document.getElementById('countdown-number')) return;
+      el.textContent = count;
+      el.style.opacity = '1';
+      el.style.transform = 'scale(1)';
+    }, 150);
+  }, 1000);
+}
+
+function renderRunStep() {
+  const content = document.getElementById('run-content');
+  const total = runPlan.exercises.length;
+  if (runIdx >= total) {
+    // Done!
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    logActivity();
+    content.innerHTML = `
+      <div class="run-done-screen fade-in">
+        <div class="done-icon">🎉</div>
+        <div class="done-title">Workout Done!</div>
+        <div class="done-sub">${runPlan.name} · ${total} exercises completed</div>
+        <button class="run-next-btn" onclick="goHome()">Back to Home</button>
+      </div>
+    `;
+    return;
+  }
+  const ex = runPlan.exercises[runIdx];
+  const progress = (runIdx / total) * 100;
+  const totalSets = ex.sets || 1;
+
+  if (ex.type === 'time') {
+    timerTotal = ex.duration;
+    timerRemaining = ex.duration;
+    content.innerHTML = `
+      <div class="run-progress"><div class="run-progress-bar" id="run-prog-bar" style="width:${progress}%"></div></div>
+      <div class="run-counter">Exercise ${runIdx + 1} of ${total} · Set ${currentRunSet} of ${totalSets}</div>
+      <div class="run-main fade-in">
+        <div class="run-badge">⏱ Timed Exercise</div>
+        <div class="run-exercise-name">${esc(ex.name)}</div>
+        <div class="timer-ring-wrap" id="timer-ring-wrap">
+          <svg class="timer-ring-svg" viewBox="0 0 160 160">
+            <circle class="timer-ring-bg" cx="80" cy="80" r="68"/>
+            <circle class="timer-ring-progress" id="timer-ring-prog" cx="80" cy="80" r="68"
+              stroke-dasharray="${2*Math.PI*68}"
+              stroke-dashoffset="0"/>
+          </svg>
+          <div class="timer-ring-text" id="timer-text">${timerRemaining}</div>
+        </div>
+        <button class="run-next-btn" id="run-next-btn" onclick="nextStep()" disabled style="opacity:0.4">
+          ${currentRunSet < totalSets ? `Next Set →` : runIdx + 1 < total ? 'Next Exercise →' : 'Finish 🎉'}
+        </button>
+      </div>
+    `;
+    startTimer();
+  } else {
+    content.innerHTML = `
+      <div class="run-progress"><div class="run-progress-bar" style="width:${progress}%"></div></div>
+      <div class="run-counter">Exercise ${runIdx + 1} of ${total} · Set ${currentRunSet} of ${totalSets}</div>
+      <div class="run-main fade-in">
+        <div class="run-badge">💪 Reps</div>
+        <div class="run-exercise-name">${esc(ex.name)}</div>
+        <div class="run-detail">${ex.reps} reps</div>
+        <button class="run-next-btn" onclick="nextStep()">
+          ${currentRunSet < totalSets ? `Done — Next Set →` : runIdx + 1 < total ? 'Done — Next Exercise →' : 'Finish 🎉'}
+        </button>
+      </div>
+    `;
+  }
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  const circumference = 2 * Math.PI * 68;
+  timerInterval = setInterval(() => {
+    timerRemaining--;
+    const textEl = document.getElementById('timer-text');
+    const ringEl = document.getElementById('timer-ring-prog');
+    const btn = document.getElementById('run-next-btn');
+    if (textEl) textEl.textContent = timerRemaining;
+    if (ringEl) {
+      const offset = circumference * (1 - timerRemaining / timerTotal);
+      ringEl.style.strokeDashoffset = offset;
+    }
+    if (timerRemaining <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    }
+  }, 1000);
+}
+
+function nextStep() {
+  const ex = runPlan.exercises[runIdx];
+  const isLastSet = currentRunSet >= ex.sets;
+  if (!isLastSet) {
+    currentRunSet++;
+    renderRunStep();
+  } else {
+    const finishedEx = runPlan.exercises[runIdx];
+    const breakTime = finishedEx.breakTime || 0;
+    runIdx++;
+    currentRunSet = 1;
+    const isLastExercise = runIdx >= runPlan.exercises.length;
+    if (breakTime > 0 && !isLastExercise) {
+      renderBreakScreen(breakTime);
+    } else {
+      renderRunStep();
+    }
+  }
+}
+
+function renderBreakScreen(seconds) {
+  if (timerInterval) clearInterval(timerInterval);
+  const content = document.getElementById('run-content');
+  const total = runPlan.exercises.length;
+  const progress = (runIdx / total) * 100;
+  const circumference = 2 * Math.PI * 68;
+  timerTotal = seconds;
+  timerRemaining = seconds;
+
+  content.innerHTML = `
+    <div class="run-progress"><div class="run-progress-bar" style="width:${progress}%"></div></div>
+    <div class="run-counter">Up next: ${esc(runPlan.exercises[runIdx].name)}</div>
+    <div class="run-main fade-in">
+      <div class="run-badge">☕ Break Time</div>
+      <div class="run-exercise-name" style="font-size:clamp(1.8rem,6vw,3rem);color:var(--muted);">REST</div>
+      <div class="timer-ring-wrap" id="timer-ring-wrap">
+        <svg class="timer-ring-svg" viewBox="0 0 160 160">
+          <circle class="timer-ring-bg" cx="80" cy="80" r="68"/>
+          <circle class="timer-ring-progress" id="timer-ring-prog" cx="80" cy="80" r="68"
+            stroke-dasharray="${circumference}"
+            stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-ring-text" id="timer-text">${timerRemaining}</div>
+      </div>
+      <button class="run-next-btn" id="run-next-btn" onclick="skipBreak()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);">
+        Skip Break →
+      </button>
+    </div>
+  `;
+
+  timerInterval = setInterval(() => {
+    timerRemaining--;
+    const textEl = document.getElementById('timer-text');
+    const ringEl = document.getElementById('timer-ring-prog');
+    if (textEl) textEl.textContent = timerRemaining;
+    if (ringEl) {
+      const offset = circumference * (1 - timerRemaining / timerTotal);
+      ringEl.style.strokeDashoffset = offset;
+    }
+    if (timerRemaining <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      renderRunStep();
+    }
+  }, 1000);
+}
+
+function skipBreak() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  renderRunStep();
+}
+
+function confirmStopRun() { openModal('modal-stop-run'); }
+function doStopRun() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  closeModal('modal-stop-run');
+  goHome();
+}
+
+function logActivity() {
+  const logs = getLogs();
+  logs.push({ id: uid(), planId: runPlan.id, planName: runPlan.name, date: new Date().toISOString() });
+  setLogs(logs);
+}
+
+// ============ CALENDAR ============
+function renderCalendar() {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-month-label').textContent = `${months[calMonth]} ${calYear}`;
+  const logs = getLogs();
+  const logDates = new Set(logs.map(l => {
+    const d = new Date(l.date);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; // getMonth/getDate are local time
+  }));
+
+  const grid = document.getElementById('cal-grid');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = days.map(d => `<div class="cal-day-label">${d}</div>`).join('');
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevDays = new Date(calYear, calMonth, 0).getDate();
+  const today = new Date();
+
+  // prev month
+  for (let i = firstDay - 1; i >= 0; i--) {
+    html += `<div class="cal-day other-month">${prevDays - i}</div>`;
+  }
+  // current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${calYear}-${calMonth}-${d}`;
+    const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+    const hasLog = logDates.has(key);
+    html += `<div class="cal-day ${isToday ? 'today' : ''} ${hasLog ? 'has-log' : ''}" onclick="showCalDay(${d})">
+      ${d}
+      ${hasLog ? '<span class="cal-dot"></span>' : ''}
+    </div>`;
+  }
+  // fill rest
+  const total = firstDay + daysInMonth;
+  const rem = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let i = 1; i <= rem; i++) html += `<div class="cal-day other-month">${i}</div>`;
+
+  grid.innerHTML = html;
+  renderCalLogs();
+}
+
+function renderCalLogs() {
+  const logs = getLogs().filter(l => {
+    const d = new Date(l.date);
+    return d.getFullYear() === calYear && d.getMonth() === calMonth;
+  }).reverse();
+  const el = document.getElementById('cal-log-list');
+  if (!logs.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;">No workouts this month.</div>`;
+    return;
+  }
+  el.innerHTML = logs.map(l => {
+    const d = new Date(l.date);
+    return `<div class="log-item fade-in">
+      <h4>${esc(l.planName)}</h4>
+      <div class="log-meta">${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
+    </div>`;
+  }).join('');
+}
+
+function showCalDay(d) {
+  const logs = getLogs().filter(l => {
+    const ld = new Date(l.date);
+    return ld.getFullYear() === calYear && ld.getMonth() === calMonth && ld.getDate() === d;
+  });
+  if (!logs.length) return;
+  const el = document.getElementById('cal-log-list');
+  el.innerHTML = `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;font-family:var(--font-mono);">Day ${d}</div>` +
+    logs.map(l => `<div class="log-item fade-in"><h4>${esc(l.planName)}</h4><div class="log-meta">${new Date(l.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`).join('');
+}
+
+function calPrev() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+function calNext() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+// ============ RESET ============
+function confirmReset() {
+  document.getElementById('modal-reset-user').textContent = currentUser.charAt(0).toUpperCase() + currentUser.slice(1);
+  openModal('modal-reset');
+}
+function doReset() {
+  localStorage.removeItem(storageKey('plans'));
+  localStorage.removeItem(storageKey('logs'));
+  closeModal('modal-reset');
+  // Re-init calendar state so dots are gone if user navigates there
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  // If calendar screen is currently open, re-render it immediately
+  if (document.getElementById('screen-calendar').classList.contains('active')) {
+    renderCalendar();
+  }
+  renderHome();
+  toast('All data reset', 'danger');
+}
+
+// ============ MODALS ============
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+// ============ TOAST ============
+let toastTimeout;
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============ UTILS ============
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ============ VERSION GUARD ============
+const APP_VERSION = 'fitflow_v2';
+if (localStorage.getItem('fitflow_version') !== APP_VERSION) {
+  // Clear all fitflow keys from previous builds
+  Object.keys(localStorage).filter(k => k.startsWith('fitflow_') && k !== 'fitflow_version').forEach(k => localStorage.removeItem(k));
+  localStorage.setItem('fitflow_version', APP_VERSION);
+}
+
+// Init
+window._editExercises = [];
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('TIDAL SW registered:', r.scope))
+      .catch(e => console.log('SW error:', e));
+  });
+}
+</script>
+
+</body>
+</html>
