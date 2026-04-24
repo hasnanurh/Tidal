@@ -293,13 +293,15 @@
     padding: 0.9rem 1rem;
     display: flex; align-items: center; gap: 0.8rem;
   }
-  .drag-handle { color: var(--muted); cursor: grab; font-size: 1rem; user-select: none; flex-shrink: 0; }
+  .drag-handle { color: var(--muted); cursor: grab; font-size: 1.2rem; user-select: none; flex-shrink: 0; touch-action: none; padding: 0.25rem 0.4rem; }
   .drag-handle:active { cursor: grabbing; }
   .ex-info { flex: 1; }
   .ex-name { font-weight: 600; font-size: 0.95rem; }
   .ex-detail { font-size: 0.78rem; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 0.15rem; }
-  .exercise-item.dragging { opacity: 0.4; border-style: dashed; }
-  .exercise-item.drag-over { border-color: var(--accent); }
+  .exercise-item.dragging { opacity: 0.45; border-style: dashed; border-color: var(--accent); background: var(--surface2); }
+  .exercise-item.drag-over { border-color: var(--accent); background: #1a1a1a08; }
+  .exercise-item { transition: transform 0.15s, box-shadow 0.15s; }
+  .exercise-item.touch-dragging { box-shadow: 0 8px 24px rgba(0,0,0,0.15); transform: scale(1.02); z-index: 100; }
 
   /* Add exercise form */
   .add-ex-form {
@@ -837,6 +839,7 @@ let runIdx = 0;
 let timerInterval = null;
 let timerRemaining = 0;
 let timerTotal = 0;
+let timerPaused = false;
 let currentRunSet = 1;
 let dragSrcIdx = null;
 
@@ -995,9 +998,8 @@ function renderExerciseList() {
     return;
   }
   list.innerHTML = exs.map((e, i) => `
-    <div class="exercise-item fade-in" draggable="true" data-idx="${i}"
-      ondragstart="dragStart(event,${i})" ondragover="dragOver(event,${i})" ondrop="dragDrop(event,${i})" ondragleave="dragLeave(event)">
-      <span class="drag-handle">⠿</span>
+    <div class="exercise-item fade-in" data-idx="${i}">
+      <span class="drag-handle" onmousedown="mouseDragStart(event,${i})" ontouchstart="touchDragStart(event,${i})">⠿</span>
       <div class="ex-info">
         <div class="ex-name">${esc(e.name)}</div>
         <div class="ex-detail">${e.type === 'reps' ? `${e.sets} sets × ${e.reps} reps` : `${e.sets} sets × ${e.duration}s`}${e.breakTime ? ` · ${e.breakTime}s break` : ''}</div>
@@ -1076,17 +1078,110 @@ function savePlan() {
 }
 
 // ============ DRAG & DROP ============
-function dragStart(e, i) { dragSrcIdx = i; e.currentTarget.classList.add('dragging'); }
-function dragOver(e, i) { e.preventDefault(); document.querySelectorAll('.exercise-item').forEach(el => el.classList.remove('drag-over')); e.currentTarget.classList.add('drag-over'); }
-function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function dragDrop(e, i) {
-  e.preventDefault();
-  if (dragSrcIdx === null || dragSrcIdx === i) return;
-  const exs = window._editExercises;
-  const [moved] = exs.splice(dragSrcIdx, 1);
-  exs.splice(i, 0, moved);
+// ── Unified drag-to-reorder (mouse + touch) ──
+let dragSrcIdx = null;
+let _dragClone = null;
+let _dragOffsetY = 0;
+
+function getItemEls() {
+  return Array.from(document.querySelectorAll('#exercise-list .exercise-item'));
+}
+
+function getDragTargetIdx(clientY) {
+  const els = getItemEls();
+  for (let i = 0; i < els.length; i++) {
+    const rect = els[i].getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) return i;
+  }
+  return els.length - 1;
+}
+
+function startDrag(srcIdx, clientY, srcEl) {
+  dragSrcIdx = srcIdx;
+  srcEl.classList.add('dragging');
+}
+
+function moveDrag(clientY) {
+  if (dragSrcIdx === null) return;
+  getItemEls().forEach(el => el.classList.remove('drag-over'));
+  const targetIdx = getDragTargetIdx(clientY);
+  const els = getItemEls();
+  if (els[targetIdx]) els[targetIdx].classList.add('drag-over');
+}
+
+function endDrag(clientY) {
+  if (dragSrcIdx === null) return;
+  const targetIdx = getDragTargetIdx(clientY);
+  getItemEls().forEach(el => { el.classList.remove('drag-over'); el.classList.remove('dragging'); });
+  if (targetIdx !== dragSrcIdx) {
+    const exs = window._editExercises;
+    const [moved] = exs.splice(dragSrcIdx, 1);
+    exs.splice(targetIdx, 0, moved);
+    renderExerciseList();
+  }
   dragSrcIdx = null;
-  renderExerciseList();
+}
+
+// Mouse events
+function mouseDragStart(e, i) {
+  e.preventDefault();
+  const srcEl = e.currentTarget.closest('.exercise-item');
+  startDrag(i, e.clientY, srcEl);
+  function onMove(ev) { moveDrag(ev.clientY); }
+  function onUp(ev) {
+    endDrag(ev.clientY);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// Touch events
+function touchDragStart(e, i) {
+  // Use a small movement threshold — if the finger moves more than 6px
+  // before touchend we treat it as a drag, otherwise it's a tap/scroll
+  const startY = e.touches[0].clientY;
+  const startX = e.touches[0].clientX;
+  const srcEl = e.currentTarget.closest('.exercise-item');
+  let dragging = false;
+  let longPressTimer = null;
+
+  function onMove(ev) {
+    const dy = Math.abs(ev.touches[0].clientY - startY);
+    const dx = Math.abs(ev.touches[0].clientX - startX);
+    if (!dragging) {
+      if (dy > 6 && dy > dx) {
+        // Vertical move — start drag
+        dragging = true;
+        clearTimeout(longPressTimer);
+        startDrag(i, ev.touches[0].clientY, srcEl);
+        ev.preventDefault();
+      } else if (dx > 6) {
+        // Horizontal move — let scroll handle it, cancel drag
+        cleanup();
+        return;
+      }
+    } else {
+      ev.preventDefault();
+      moveDrag(ev.touches[0].clientY);
+    }
+  }
+
+  function onEnd(ev) {
+    clearTimeout(longPressTimer);
+    if (dragging) endDrag(ev.changedTouches[0].clientY);
+    else endDrag(startY); // no-op, same index
+    cleanup();
+  }
+
+  function cleanup() {
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+  }
+
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
 }
 
 // ============ RUN ============
@@ -1158,6 +1253,7 @@ function renderRunStep() {
   if (ex.type === 'time') {
     timerTotal = ex.duration;
     timerRemaining = ex.duration;
+    timerPaused = false;
     content.innerHTML = `
       <div class="run-progress"><div class="run-progress-bar" id="run-prog-bar" style="width:${progress}%"></div></div>
       <div class="run-counter">Exercise ${runIdx + 1} of ${total} · Set ${currentRunSet} of ${totalSets}</div>
@@ -1172,6 +1268,10 @@ function renderRunStep() {
               stroke-dashoffset="0"/>
           </svg>
           <div class="timer-ring-text" id="timer-text">${timerRemaining}</div>
+        </div>
+        <div style="display:flex;gap:0.75rem;justify-content:center;margin-bottom:1rem;">
+          <button class="btn btn-ghost" id="pause-btn" onclick="togglePause()" style="min-width:100px;">⏸ Pause</button>
+          <button class="btn btn-ghost" onclick="resetTimer()" style="min-width:100px;">↺ Reset</button>
         </div>
         <button class="run-next-btn" id="run-next-btn" onclick="nextStep()" disabled style="opacity:0.4">
           ${currentRunSet < totalSets ? `Next Set →` : runIdx + 1 < total ? 'Next Exercise →' : 'Finish 🎉'}
@@ -1217,6 +1317,37 @@ function startTimer() {
       playTick(timerRemaining <= 3);
     }
   }, 1000);
+}
+
+function togglePause() {
+  const btn = document.getElementById('pause-btn');
+  if (!btn) return;
+  if (timerPaused) {
+    // Resume
+    timerPaused = false;
+    btn.innerHTML = '⏸ Pause';
+    startTimer();
+  } else {
+    // Pause
+    timerPaused = true;
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    btn.innerHTML = '▶ Resume';
+  }
+}
+
+function resetTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  timerPaused = false;
+  timerRemaining = timerTotal;
+  const textEl = document.getElementById('timer-text');
+  const ringEl = document.getElementById('timer-ring-prog');
+  const btn = document.getElementById('run-next-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+  if (textEl) textEl.textContent = timerRemaining;
+  if (ringEl) ringEl.style.strokeDashoffset = 0;
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+  if (pauseBtn) { pauseBtn.innerHTML = '⏸ Pause'; }
+  startTimer();
 }
 
 function nextStep() {
@@ -1350,22 +1481,16 @@ function renderCalendar() {
 }
 
 function renderCalLogs() {
-  const logs = getLogs().filter(l => {
-    const d = new Date(l.date);
-    return d.getFullYear() === calYear && d.getMonth() === calMonth;
-  }).reverse();
-  const el = document.getElementById('cal-log-list');
-  if (!logs.length) {
-    el.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;">No workouts this month.</div>`;
-    return;
+  // Default: show today's workouts when first opening calendar
+  const today = new Date();
+  const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth();
+  if (isCurrentMonth) {
+    showCalDay(today.getDate());
+  } else {
+    // For past/future months show nothing selected by default
+    const el = document.getElementById('cal-log-list');
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:1rem 0;">Tap a day to see workouts.</div>`;
   }
-  el.innerHTML = logs.map(l => {
-    const d = new Date(l.date);
-    return `<div class="log-item fade-in">
-      <h4>${esc(l.planName)}</h4>
-      <div class="log-meta">${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
-    </div>`;
-  }).join('');
 }
 
 function showCalDay(d) {
@@ -1373,9 +1498,15 @@ function showCalDay(d) {
     const ld = new Date(l.date);
     return ld.getFullYear() === calYear && ld.getMonth() === calMonth && ld.getDate() === d;
   });
-  if (!logs.length) return;
   const el = document.getElementById('cal-log-list');
-  el.innerHTML = `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;font-family:var(--font-mono);">Day ${d}</div>` +
+  const dateLabel = new Date(calYear, calMonth, d).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+  if (!logs.length) {
+    el.innerHTML = `
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;">${dateLabel}</div>
+      <div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">No exercise recorded this day.</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;">${dateLabel}</div>` +
     logs.map(l => `<div class="log-item fade-in"><h4>${esc(l.planName)}</h4><div class="log-meta">${new Date(l.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`).join('');
 }
 
