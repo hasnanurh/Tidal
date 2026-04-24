@@ -1078,11 +1078,6 @@ function savePlan() {
 }
 
 // ============ DRAG & DROP ============
-// ── Unified drag-to-reorder (mouse + touch) ──
-let dragSrcIdx = null;
-let _dragClone = null;
-let _dragOffsetY = 0;
-
 function getItemEls() {
   return Array.from(document.querySelectorAll('#exercise-list .exercise-item'));
 }
