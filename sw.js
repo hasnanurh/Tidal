@@ -1,4 +1,4 @@
-const CACHE = 'tidal-v3';
+const CACHE = 'tidal-v6';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
